@@ -14,7 +14,7 @@
 #include <mkl_cblas.h>
 #include <mkl.h>
 #elif _OPENBLAS_
-#include <cblas.h>
+#include <openblas/cblas.h>
 #endif
 
 #ifndef D
