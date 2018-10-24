@@ -106,7 +106,9 @@ int main(int argc, char** argv)
     }
     
     memcpy(C2,C, sizeof(double)*D*D);
-        
+
+    std::cout << "-------------------- SelfBLAS -----------------" << std::endl;
+
     double t1 = microtime();
     MY_MMult(D, D, D, A, D, B, D, C, D);
     double t2 = microtime();
@@ -125,7 +127,7 @@ int main(int argc, char** argv)
 
     }
 
-    
+    std::cout << "-------------------- OpenBLAS/MKL -----------------" << std::endl;
 
     MKL_MMult(D, D, D, A, D, B, D, refC, D);
 
@@ -945,8 +947,22 @@ void AddDot2x8( int k, double *a, int lda,  double *b, int ldb, double *c, int l
 
 
 
-void PackB_and_AddDot6x8( int k, double *a, int lda, double *ob, int ldb,  double *b, int ldb2, double *c, int ldc, double* packedC, int firstKC, int lastKC, int outi, int outj)
-{
+void PackB_and_AddDot6x8( 
+  int k, 
+  double *a, 
+  int lda, 
+  double *ob, 
+  int ldb, 
+  double *b, 
+  int ldb2, 
+  double *c, 
+  int ldc, 
+  double* packedC, 
+  int firstKC, 
+  int lastKC, 
+  int outi, 
+  int outj
+) {
   int j;
 
   double* b_to = b;
@@ -986,8 +1002,67 @@ void PackB_and_AddDot6x8( int k, double *a, int lda, double *ob, int ldb,  doubl
 
 
 #pragma noprefetch 
-#pragma unroll(8)
-  for ( p=0; p<k; p++ ){
+// #pragma unroll(8)
+  for ( p=0; p<k; p++ ){  // ..B4.3
+
+    // assembly implementation
+    double *_b_ij_pntr;
+    __asm__ __volatile__ (
+      "lea %%rax, [ %[p] * %[ldb] + %[p] * 8 ] \n\t"
+      "prefetcht0 BYTE PTR [ %%rax * 8 + %[ob] ] \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
+      "lea %%rbx, [ %%rax * 8 + %[ob] + 32 ] \n\t"
+      "prefetcht0 BYTE PTR [ %%rbx ] \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
+      "prefetcht0 BYTE PTR [ %[a] + 48 ] \n\t"  // _mm_prefetch((const char *)a+48, _MM_HINT_T0);
+      "lea %[b_ij_pntr], %[ob] + %[p] * %[ldb] \n\t"
+      "vmovapd %[b00_vreg_v], [ %[b_ij_pntr] ] \n\t"  // b00_vreg.v = _mm256_load_pd(b_ij_pntr);
+      "vmovapd %[b04_vreg_v], [ %[b_ij_pntr] + 32 ]\n\t"  // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
+      
+      "movapd %[ro2], [ %[a] ] \n\t"  // ro2 = _mm_load_pd((double*)(a));
+      "vbroadcastf128 %[a0_vreg_v] [ %[ro2] ] \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+      "vfmadd231 %[c00_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
+      "vfmadd231 %[c04_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
+      
+      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5 \n\t" // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
+      "vfmadd231 %[c10_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
+      "vfmadd231 %[c14_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
+      
+      "vmovapd [ %[b_to] ], %[b00_vreg_v]"  // _mm256_store_pd(b_to, b00_vreg.v);
+
+      // "movapd %[ro2], [ %[a] ] \n\t"  // ro2 = _mm_load_pd((double*)(a+2));
+      // "vbroadcastf128 %[a0_vreg_v] [ %[ro2] ] \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+      // "vfmadd231 %[c00_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
+      // "vfmadd231 %[c04_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
+
+
+      :  // output
+        [b_ij_pntr] "=&r" (_b_ij_pntr)
+      :  // input
+        [ob] "r" (ob),
+        [p] "r" (p),
+        [ldb] "r" (ldb),
+        [a] "r" (a),
+        [ro2] "r" (ro2),
+        [b_to] "r" (b_to),
+        [a0_vreg_v] "r" (a0_vreg.v),
+        [b00_vreg_v] "r" (b00_vreg.v),
+        [b04_vreg_v] "r" (b04_vreg.v),
+        [c00_vreg_v] "r" (c00_vreg.v),
+        [c04_vreg_v] "r" (c04_vreg.v),
+        [c10_vreg_v] "r" (c10_vreg.v),
+        [c14_vreg_v] "r" (c14_vreg.v),
+        [c20_vreg_v] "r" (c20_vreg.v),
+        [c24_vreg_v] "r" (c24_vreg.v),
+        [c30_vreg_v] "r" (c30_vreg.v),
+        [c34_vreg_v] "r" (c34_vreg.v),
+        [c40_vreg_v] "r" (c40_vreg.v),
+        [c44_vreg_v] "r" (c44_vreg.v),
+        [c50_vreg_v] "r" (c50_vreg.v),
+        [c54_vreg_v] "r" (c54_vreg.v)
+      :  // clobbered registers
+        "%rax",
+        "%rbx"
+    );
+
     _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
     _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
     _mm_prefetch((const char *)a+48, _MM_HINT_T0);
@@ -1002,8 +1077,8 @@ void PackB_and_AddDot6x8( int k, double *a, int lda, double *ob, int ldb,  doubl
 
 //    a0_vreg.v = _mm256_load_pd( (double *) a );       /* load and duplicate */
 //    a0_vreg.v = _mm256_set1_pd( *(double *) a );       /* load and duplicate */
-    ro2 = _mm_load_pd((double*)(a));
-    a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+    ro2 = _mm_load_pd((double*)(a));  // movapd
+    a0_vreg.v = _mm256_set_m128d(ro2, ro2);  // vinsertf128
     c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
     c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
 //        if(outi==2016 && outj == 352){
@@ -1011,7 +1086,7 @@ void PackB_and_AddDot6x8( int k, double *a, int lda, double *ob, int ldb,  doubl
 //        }
 
 //    a0_vreg.v = _mm256_set1_pd( *(double *) (a+1) );   /* load and duplicate */
-     a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
+     a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);  // vpermilpd
     c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
     c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
 
