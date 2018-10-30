@@ -1015,13 +1015,14 @@ void PackB_and_AddDot6x8(
       "prefetcht0 BYTE PTR [ %[ob] + %%rax * 8 ]  \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
       "lea %%rbx, [ %[ob] + %%rax * 8 + 32 ]      \n\t"
       "prefetcht0 BYTE PTR [ %%rbx ]              \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
-      "add %%edx, %[ldb]                          \n\t"
 
       "prefetcht0 BYTE PTR [ %[a] + 48 ]          \n\t"  // _mm_prefetch((const char *)a+48, _MM_HINT_T0);
       // "lea %[b_ij_pntr], [ %k[ob] + %[p] * %[ldb] ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
-      "lea %[b_ij_pntr], [ %k[ob] + %%edx ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
+      "lea %[b_ij_pntr], [ %[ob] + %%rdx * 8 ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
       "vmovapd %[b00_vreg_v], [ %[b_ij_pntr] ]     \n\t"  // b00_vreg.v = _mm256_load_pd(b_ij_pntr);
       "vmovapd %[b04_vreg_v], [ %[b_ij_pntr] + 32 ] \n\t"  // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
+      
+      "add %%edx, %[ldb]                          \n\t"
       
       // "movapd %[ro2], [ %[a] ]                    \n\t"  // ro2 = _mm_load_pd((double*)(a));
       "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
@@ -1084,7 +1085,8 @@ void PackB_and_AddDot6x8(
         [c54_vreg_v] "x" (c54_vreg.v)
       :  // clobbered registers
         "%rax",
-        "%rbx"
+        "%rbx",
+        "%rdx"
     );
 
 //     _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
