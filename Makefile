@@ -9,17 +9,19 @@
  CFLAGS = -mavx -mavx2 -mfma -msse -msse2 -msse3 -lopenblas -Wall -O
 
 all: gemm.cpp
-	icpc $(OPT_FLAG) gemm.cpp -o gemm.out
+	icc $(OPT_FLAG) gemm.cpp -o gemm.out
 mkl: gemm.cpp
-	icpc $(MKL_FLAG) gemm.cpp -o gemm.out
+	icc $(MKL_FLAG) gemm.cpp -o gemm.out
 thread: gemm.cpp
-	icpc $(OPT_FLAG) gemm.cpp -o gemm.out -fopenmp
+	icc $(OPT_FLAG) gemm.cpp -o gemm.out -fopenmp
 debug:
-	icpc $(DEBUG_FLAG) gemm.cpp -g -o gemm.out
+	icc $(DEBUG_FLAG) gemm.cpp -g -o gemm.out
 assemble:
-	icpc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm.s -S
-assemble-test:
-	icpc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-test.s -S
+	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm.s -S
+cpp2asm:
+	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-asm.s -S
+asm2bin:
+	icc $(OPT_FLAG) $(ASM_FLAG) gemm-asm.s -o gemm-asm.out
 clean:
 	rm gemm.out
 
