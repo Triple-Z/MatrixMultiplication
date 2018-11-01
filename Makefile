@@ -19,8 +19,8 @@ debug:
 assemble:
 	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm.s -S
 cpp2asm:
-	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-asm.s -S
-asm2bin:
+	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-asm.s -S -g
+asm2bin:	# with debug function
 	icc $(OPT_FLAG) $(ASM_FLAG) gemm-asm.s -o gemm-asm.out -g
 clean:
 	rm gemm.out

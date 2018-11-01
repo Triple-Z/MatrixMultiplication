@@ -100,10 +100,13 @@ int main(int argc, char** argv)
     for(int i=0; i< D*D; i++)
     {
         
-        A[i] = (double(i%100)/2);
-        B[i] = (double(i%100)/2);
+        // A[i] = (double(i%100)/2);
+        // B[i] = (double(i%100)/2);
+        A[i] = 1;
+        B[i] = 1;
 //        C[i] = (double(i%100)/2);
         C[i] = 0;
+        C_ASM[i] = 0;
         
 
     }
@@ -181,14 +184,14 @@ int main(int argc, char** argv)
        if(std::abs(refC[i] - C_ASM[i]) > 0)
        {
            err_asm++;
-          //  printf(" refC[%d] = %f; C[%d] = %f \n", i, refC[i], i, C[i]);
+          //  printf(" refC[%d] = %f; C[%d] = %f \n", i, refC[i], i, C_ASM[i]);
        }
 //       std::cout<<" refC["<<i<<"] = "<<refC[i]<<"; C["<<i<<"] = "<<C[i]<<std::endl;
     }
     
 
     if(err_asm==0)
-        std::cout<<" [SelfASMBLAS] Check Pass! "<<std::endl;
+        std::cout<<" [SelfASMBLAS] Check Pass~ "<<std::endl;
     else
         std::cout<<" [SelfASMBLAS] "<<err_asm<<" errors occurred"<<std::endl;
 
@@ -1052,89 +1055,6 @@ void PackB_and_AddDot6x8(
 // #pragma unroll(8)
   for ( p=0; p<k; p++ ){  // ..B4.3
 
-    // assembly implementation
-    // double *_b_ij_pntr;
-    // __asm__ __volatile__ (
-
-    //   "xor %%edx, %%edx                           \n\t"
-    //   "lea %%rax, DWORD PTR [ %%edx + %[ldb] * 8 ]\n\t"
-    //   "prefetcht0 BYTE PTR [ %[ob] + %%rax * 8 ]  \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
-    //   "lea %%rbx, [ %[ob] + %%rax * 8 + 32 ]      \n\t"
-    //   "prefetcht0 BYTE PTR [ %%rbx ]              \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
-
-    //   "prefetcht0 BYTE PTR [ %[a] + 48 ]          \n\t"  // _mm_prefetch((const char *)a+48, _MM_HINT_T0);
-    //   // "lea %[b_ij_pntr], [ %k[ob] + %[p] * %[ldb] ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
-    //   "lea %[b_ij_pntr], [ %[ob] + %%rdx * 8 ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
-    //   "vmovapd %[b00_vreg_v], [ %[b_ij_pntr] ]     \n\t"  // b00_vreg.v = _mm256_load_pd(b_ij_pntr);
-    //   "vmovapd %[b04_vreg_v], [ %[b_ij_pntr] + 32 ] \n\t"  // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
-      
-    //   "add %%edx, %[ldb]                          \n\t"
-      
-    //   // "movapd %[ro2], [ %[a] ]                    \n\t"  // ro2 = _mm_load_pd((double*)(a));
-    //   "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-    //   "vfmadd231pd %[c00_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
-    //   "vfmadd231pd %[c04_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
-      
-    //   "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t" // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-    //   "vfmadd231pd %[c10_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
-    //   "vfmadd231pd %[c14_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
-      
-    //   "vmovapd [ %[b_to] ], %[b00_vreg_v]         \n\t"  // _mm256_store_pd(b_to, b00_vreg.v);
-
-    //   // "movapd %[ro2], [ %[a] + 16 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+2));
-    //   "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 16 ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-    //   "vfmadd231pd %[c20_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c20_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c20_vreg.v);
-    //   "vfmadd231pd %[c24_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c24_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c24_vreg.v);
-
-    //   "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-    //   "vfmadd231pd %[c30_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c30_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c30_vreg.v);
-    //   "vfmadd231pd %[c34_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c34_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c34_vreg.v);
-
-    //   "vmovapd [ %[b_to] + 32 ], %[b04_vreg_v]    \n\t"  // _mm256_store_pd(b_to+4, b04_vreg.v);
-
-    //   // "movapd %[ro2], [ %[a] + 32 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+4));
-    //   "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 32 ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-    //   "vfmadd231pd %[c40_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c40_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c40_vreg.v);
-    //   "vfmadd231pd %[c44_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c44_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c44_vreg.v);
-
-    //   "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-    //   "vfmadd231pd %[c50_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c50_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c50_vreg.v);
-    //   "vfmadd231pd %[c54_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c54_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c54_vreg.v);
-
-    //   "add %[a], 48                               \n\t"  // a += 6;  // TODO: can reuse the result from the prefetch (char *)(a+48) in line 1016
-    //   "add %[b_to], 64 \n\t"  // b_to += 8;
-
-
-    //   :  // output
-    //     [b_ij_pntr] "=&q" (_b_ij_pntr)
-    //   :  // input
-    //     [ob] "q" (ob),
-    //     [p] "q" (p),
-    //     [ldb] "q" (ldb),
-    //     [a] "q" (a),
-    //     [b_to] "q" (b_to),
-    //     [ro2] "m" (ro2),
-    //     [a0_vreg_v] "x" (a0_vreg.v),
-    //     [b00_vreg_v] "x" (b00_vreg.v),
-    //     [b04_vreg_v] "x" (b04_vreg.v),
-    //     [c00_vreg_v] "x" (c00_vreg.v),
-    //     [c04_vreg_v] "x" (c04_vreg.v),
-    //     [c10_vreg_v] "x" (c10_vreg.v),
-    //     [c14_vreg_v] "x" (c14_vreg.v),
-    //     [c20_vreg_v] "x" (c20_vreg.v),
-    //     [c24_vreg_v] "x" (c24_vreg.v),
-    //     [c30_vreg_v] "x" (c30_vreg.v),
-    //     [c34_vreg_v] "x" (c34_vreg.v),
-    //     [c40_vreg_v] "x" (c40_vreg.v),
-    //     [c44_vreg_v] "x" (c44_vreg.v),
-    //     [c50_vreg_v] "x" (c50_vreg.v),
-    //     [c54_vreg_v] "x" (c54_vreg.v)
-    //   :  // clobbered registers
-    //     "%rax",
-    //     "%rbx",
-    //     "%rdx"
-    // );
-
     _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
     _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
     _mm_prefetch((const char *)a+48, _MM_HINT_T0);
@@ -1412,79 +1332,106 @@ void PackB_and_AddDot6x8_ASM(
     double *_b_ij_pntr;
     __asm__ __volatile__ (
 
-      "xor %%edx, %%edx                           \n\t"
+      "xor %%rdx, %%rdx                           \n\t"
       "lea %%rax, DWORD PTR [ %%edx + %[ldb] * 8 ]\n\t"
-      "prefetcht0 BYTE PTR [ %[ob] + %%rax * 8 ]  \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
+      "prefetcht0 BYTE PTR [ %[ob] + %%rax * 8 ]  \n\t"  
+      // _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
       "lea %%rbx, [ %[ob] + %%rax * 8 + 32 ]      \n\t"
-      "prefetcht0 BYTE PTR [ %%rbx ]              \n\t"  // _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
+      "prefetcht0 BYTE PTR [ %%rbx ]              \n\t"  
+      // _mm_prefetch((const char *)(ob + (p+8)*ldb + 4), _MM_HINT_T0);
 
-      "prefetcht0 BYTE PTR [ %[a] + 48 ]          \n\t"  // _mm_prefetch((const char *)a+48, _MM_HINT_T0);
+      "prefetcht0 BYTE PTR [ %[a] + 48 ]          \n\t"  
+      // _mm_prefetch((const char *)a+48, _MM_HINT_T0);
       // "lea %[b_ij_pntr], [ %k[ob] + %[p] * %[ldb] ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
-      "lea %[b_ij_pntr], [ %[ob] + %%rdx * 8 ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
-      "vmovapd %[b00_vreg_v], [ %[b_ij_pntr] ]     \n\t"  // b00_vreg.v = _mm256_load_pd(b_ij_pntr);
-      "vmovapd %[b04_vreg_v], [ %[b_ij_pntr] + 32 ] \n\t"  // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
+      "lea %[b_ij_pntr], [ %[ob] + %%rdx ] \n\t"  // double  *b_ij_pntr = ob + p * ldb;
+      "vmovapd %[b00_vreg_v], YMMWORD PTR [ %[b_ij_pntr] ]     \n\t"  
+      // b00_vreg.v = _mm256_load_pd(b_ij_pntr);
+      "vmovapd %[b04_vreg_v], YMMWORD PTR [ %[b_ij_pntr] + 32 ] \n\t"  
+      // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
       
       "add %%edx, %[ldb]                          \n\t"
       
       // "movapd %[ro2], [ %[a] ]                    \n\t"  // ro2 = _mm_load_pd((double*)(a));
-      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-      "vfmadd231pd %[c00_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
-      "vfmadd231pd %[c04_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
+      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] ]        \n\t"  
+      // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+      "vfmadd231pd %[c00_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c00_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c00_vreg.v);
+      "vfmadd231pd %[c04_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
+      // c04_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c04_vreg.v);
       
-      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t" // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-      "vfmadd231pd %[c10_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
-      "vfmadd231pd %[c14_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
+      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t" 
+      // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
+      "vfmadd231pd %[c10_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
+      "vfmadd231pd %[c14_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
+      // c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
       
-      "vmovapd [ %[b_to] ], %[b00_vreg_v]         \n\t"  // _mm256_store_pd(b_to, b00_vreg.v);
+      "vmovapd YMMWORD PTR [ %[b_to] ], %[b00_vreg_v]         \n\t"  
+      // _mm256_store_pd(b_to, b00_vreg.v);
 
       // "movapd %[ro2], [ %[a] + 16 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+2));
-      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 16 ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-      "vfmadd231pd %[c20_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c20_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c20_vreg.v);
-      "vfmadd231pd %[c24_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c24_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c24_vreg.v);
+      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 16 ]        \n\t"  
+      // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+      "vfmadd231pd %[c20_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c20_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c20_vreg.v);
+      "vfmadd231pd %[c24_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
+      // c24_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c24_vreg.v);
 
-      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-      "vfmadd231pd %[c30_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c30_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c30_vreg.v);
-      "vfmadd231pd %[c34_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c34_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c34_vreg.v);
+      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  
+      // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
+      "vfmadd231pd %[c30_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c30_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c30_vreg.v);
+      "vfmadd231pd %[c34_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
+      // c34_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c34_vreg.v);
 
-      "vmovapd [ %[b_to] + 32 ], %[b04_vreg_v]    \n\t"  // _mm256_store_pd(b_to+4, b04_vreg.v);
+      "vmovapd YMMWORD PTR [ %[b_to] + 32 ], %[b04_vreg_v]    \n\t"  
+      // _mm256_store_pd(b_to+4, b04_vreg.v);
 
       // "movapd %[ro2], [ %[a] + 32 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+4));
-      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 32 ]        \n\t"  // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
-      "vfmadd231pd %[c40_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c40_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c40_vreg.v);
-      "vfmadd231pd %[c44_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c44_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c44_vreg.v);
+      "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 32 ]        \n\t"  
+      // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
+      "vfmadd231pd %[c40_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c40_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c40_vreg.v);
+      "vfmadd231pd %[c44_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t" 
+      // c44_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c44_vreg.v);
 
-      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
-      "vfmadd231pd %[c50_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  // c50_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c50_vreg.v);
-      "vfmadd231pd %[c54_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  // c54_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c54_vreg.v);
+      "vpermilpd %[a0_vreg_v], %[a0_vreg_v], 5    \n\t"  
+      // a0_vreg.v = _mm256_permute_pd(a0_vreg.v, 0b0101);
+      "vfmadd231pd %[c50_vreg_v], %[b00_vreg_v], %[a0_vreg_v] \n\t"  
+      // c50_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c50_vreg.v);
+      "vfmadd231pd %[c54_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
+      // c54_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c54_vreg.v);
 
-      "add %[a], 48                               \n\t"  // a += 6;  // TODO: can reuse the result from the prefetch (char *)(a+48) in line 1016
-      "add %[b_to], 64 \n\t"  // b_to += 8;
+      "add %[a], 48                               \n\t"  
+      // a += 6;  // TODO: can reuse the result from the prefetch (char *)(a+48) in line 1016
+      "add %[b_to], 64                            \n\t"  
+      // b_to += 8;
 
 
       :  // output
-        [b_ij_pntr] "=&q" (_b_ij_pntr)
+        [c00_vreg_v] "=&x" (c00_vreg.v),
+        [c04_vreg_v] "=&x" (c04_vreg.v),
+        [c10_vreg_v] "=&x" (c10_vreg.v),
+        [c14_vreg_v] "=&x" (c14_vreg.v),
+        [c20_vreg_v] "=&x" (c20_vreg.v),
+        [c24_vreg_v] "=&x" (c24_vreg.v),
+        [c30_vreg_v] "=&x" (c30_vreg.v),
+        [c34_vreg_v] "=&x" (c34_vreg.v),
+        [c40_vreg_v] "=&x" (c40_vreg.v),
+        [c44_vreg_v] "=&x" (c44_vreg.v),
+        [c50_vreg_v] "=&x" (c50_vreg.v),
+        [c54_vreg_v] "=&x" (c54_vreg.v)
+        [a]          "+&q" (a),
+        [b_to]       "+&q" (b_to),
+        [b_ij_pntr]  "+q"  (_b_ij_pntr)
+        // [ro2]        "m" (ro2)
       :  // input
-        [ob] "q" (ob),
-        [p] "q" (p),
-        [ldb] "q" (ldb),
-        [a] "q" (a),
-        [b_to] "q" (b_to),
-        [ro2] "m" (ro2),
-        [a0_vreg_v] "x" (a0_vreg.v),
+        [a0_vreg_v]  "x" (a0_vreg.v),
         [b00_vreg_v] "x" (b00_vreg.v),
         [b04_vreg_v] "x" (b04_vreg.v),
-        [c00_vreg_v] "x" (c00_vreg.v),
-        [c04_vreg_v] "x" (c04_vreg.v),
-        [c10_vreg_v] "x" (c10_vreg.v),
-        [c14_vreg_v] "x" (c14_vreg.v),
-        [c20_vreg_v] "x" (c20_vreg.v),
-        [c24_vreg_v] "x" (c24_vreg.v),
-        [c30_vreg_v] "x" (c30_vreg.v),
-        [c34_vreg_v] "x" (c34_vreg.v),
-        [c40_vreg_v] "x" (c40_vreg.v),
-        [c44_vreg_v] "x" (c44_vreg.v),
-        [c50_vreg_v] "x" (c50_vreg.v),
-        [c54_vreg_v] "x" (c54_vreg.v)
+        [ob] "q" (ob),
+        [p] "q" (p),
+        [ldb] "q" (ldb)
       :  // clobbered registers
         "%rax",
         "%rbx",
@@ -1674,8 +1621,8 @@ void PackB_and_AddDot6x8_ASM(
           c54_vreg.v = _mm256_add_pd(c54_vreg.v, _mm256_load_pd(packedC+44));
         }
 
-//      print256(" c10_vreg ", c10_vreg);
-//      print256(" c04_vreg ", c04_vreg);
+    //  print256(" c10_vreg ", c10_vreg);
+    //  print256(" c04_vreg ", c04_vreg);
 
 //        if(outi==2016 && outj == 352 && !firstKC)
 //           printf(" before. packedC[0] = %f \n", packedC[0]);
