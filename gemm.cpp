@@ -18,7 +18,7 @@
 #endif
 
 #ifndef D
-#define D 1024
+#define D 2048
 #endif
 
 #ifndef S 
@@ -86,6 +86,8 @@ void MKL_MMult( int m, int n, int k, double *a, int lda,
 int main(int argc, char** argv)
 {
 
+    std::cout << "D = " << D << std::endl;
+
     double* A = (double*) _mm_malloc ( sizeof(double) * D * (D+1), 64);
     double* B = (double*) _mm_malloc ( sizeof(double) * D * D, 64);
     double* C = (double*) _mm_malloc ( sizeof(double) * D * D, 64);
@@ -102,8 +104,10 @@ int main(int argc, char** argv)
         
         // A[i] = (double(i%100)/2);
         // B[i] = (double(i%100)/2);
-        A[i] = 1;
-        B[i] = 1;
+        A[i] = (double(i%32));
+        B[i] = (double(i%25));
+        // A[i] = 1;
+        // B[i] = 2;
 //        C[i] = (double(i%100)/2);
         C[i] = 0;
         C_ASM[i] = 0;
@@ -114,53 +118,22 @@ int main(int argc, char** argv)
     memcpy(C2,C, sizeof(double)*D*D);
     memcpy(C2_ASM,C_ASM, sizeof(double)*D*D);
 
-    std::cout << "-------------------- SelfBLAS -----------------" << std::endl;
-
-    double t1 = microtime();
-    MY_MMult(D, D, D, A, D, B, D, C, D, false);
-    double t2 = microtime();
-    std::cout<<" Standard: elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
-
-    for(int i=0; i<10; i++)
-    {
-        double t1 = microtime();
-        MY_MMult(D, D, D, A, D, B, D, C2, D, false);
-        
-        double t2 = microtime();
-        std::cout<<" C[0] = "<< C2[0]<<std::endl;
-
-        std::cout<<" elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
-
-    }
-
-
-    std::cout << "-------------------- SelfASMBLAS --------------" << std::endl;
-
-    t1 = microtime();
-    MY_MMult(D, D, D, A, D, B, D, C_ASM, D, true);
-    t2 = microtime();
-    std::cout<<" Standard: elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
-
-    for(int i=0; i<10; i++)
-    {
-        double t1 = microtime();
-        MY_MMult(D, D, D, A, D, B, D, C2_ASM, D, true);
-        
-        double t2 = microtime();
-        std::cout<<" C[0] = "<< C2_ASM[0]<<std::endl;
-
-        std::cout<<" elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
-
-    }
-
 
     std::cout << "-------------------- OpenBLAS/MKL -----------------" << std::endl;
 
     MKL_MMult(D, D, D, A, D, B, D, refC, D);
 
 
-    std::cout << std::endl;
+    std::cout << "-------------------- SelfBLAS -----------------" << std::endl;
 
+    double t1 = microtime();
+    MY_MMult(D, D, D, A, D, B, D, C, D, false);
+    double t2 = microtime();
+    std::cout<<" Standard: elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
+    std::cout<<" C[0] = "<< C[0]<<std::endl;
+    std::cout << "C[1] = " << C[1] << std::endl;
+    
+    // validation
     int err=0;
     for(int i=0; i < D*D; i++)
     {
@@ -171,27 +144,61 @@ int main(int argc, char** argv)
        }
 //       std::cout<<" refC["<<i<<"] = "<<refC[i]<<"; C["<<i<<"] = "<<C[i]<<std::endl;
     }
-    
+    if(err==0) {
+      std::cout<<" [SelfBLAS] Check Pass~ "<<std::endl;
+      
+      for(int i=0; i<10; i++)
+      {
+          double t1 = microtime();
+          MY_MMult(D, D, D, A, D, B, D, C2, D, false);
+          
+          double t2 = microtime();
+          std::cout<<" C[0] = "<< C2[0]<<std::endl;
 
-    if(err==0)
-        std::cout<<" [SelfBLAS] Check Pass~ "<<std::endl;
+          std::cout<<" elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
+
+      }
+    }
     else
         std::cout<<" [SelfBLAS] "<<err<<" errors occurred !"<<std::endl;
 
+    std::cout << "-------------------- SelfASMBLAS --------------" << std::endl;
+
+    t1 = microtime();
+    MY_MMult(D, D, D, A, D, B, D, C_ASM, D, true);
+    t2 = microtime();
+    std::cout<<" Standard: elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
+    std::cout<<" C[0] = "<< C_ASM[0]<<std::endl;
+    std::cout << "C[1] = " << C_ASM[1] << std::endl;
+
+    // validation 
     int err_asm=0;
     for(int i=0; i < D*D; i++)
     {
        if(std::abs(refC[i] - C_ASM[i]) > 0)
        {
            err_asm++;
-          //  printf(" refC[%d] = %f; C[%d] = %f \n", i, refC[i], i, C_ASM[i]);
+           printf(" refC[%d] = %f; C_ASM[%d] = %f \n", i, refC[i], i, C_ASM[i]);
        }
 //       std::cout<<" refC["<<i<<"] = "<<refC[i]<<"; C["<<i<<"] = "<<C[i]<<std::endl;
     }
     
 
-    if(err_asm==0)
-        std::cout<<" [SelfASMBLAS] Check Pass~ "<<std::endl;
+    if(err_asm==0) {
+      std::cout<<" [SelfASMBLAS] Check Pass~ "<<std::endl;
+      
+      for(int i=0; i<10; i++)
+      {
+        double t1 = microtime();
+        MY_MMult(D, D, D, A, D, B, D, C2_ASM, D, true);
+        
+        double t2 = microtime();
+        std::cout<<" C[0] = "<< C2_ASM[0]<<std::endl;
+
+        std::cout<<" elapsed time when D="<< D<<" is "<< t2 - t1 << "s"<<std::endl;
+
+      }
+    }
     else
         std::cout<<" [SelfASMBLAS] "<<err_asm<<" errors occurred"<<std::endl;
 
@@ -1082,7 +1089,7 @@ void PackB_and_AddDot6x8(
     c10_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c10_vreg.v);
     c14_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c14_vreg.v);
 
-    _mm256_store_pd(b_to, b00_vreg.v);
+    _mm256_store_pd(b_to, b00_vreg.v);  // pack B
 
 //    a0_vreg.v = _mm256_set1_pd( *(double *) (a+2) );   /* load and duplicate */
     ro2 = _mm_load_pd((double*)(a+2));
@@ -1095,7 +1102,7 @@ void PackB_and_AddDot6x8(
     c30_vreg.v = _mm256_fmadd_pd(b00_vreg.v, a0_vreg.v, c30_vreg.v);
     c34_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c34_vreg.v);
 
-    _mm256_store_pd(b_to+4, b04_vreg.v);
+    _mm256_store_pd(b_to+4, b04_vreg.v);  // pack B
 
 //    a0_vreg.v = _mm256_set1_pd( *(double *) (a+4) );   /* load and duplicate */
     ro2 = _mm_load_pd((double*)(a+4));
@@ -1238,7 +1245,7 @@ void PackB_and_AddDot6x8(
           c54_vreg.v = _mm256_add_pd(c54_vreg.v, _mm256_load_pd(packedC+44));
         }
 
-//      print256(" c10_vreg ", c10_vreg);
+    //  print256(" c10_vreg ", c10_vreg);
 //      print256(" c04_vreg ", c04_vreg);
 
 //        if(outi==2016 && outj == 352 && !firstKC)
@@ -1349,8 +1356,9 @@ void PackB_and_AddDot6x8_ASM(
       "vmovapd %[b04_vreg_v], YMMWORD PTR [ %[b_ij_pntr] + 32 ] \n\t"  
       // b04_vreg.v = _mm256_load_pd(b_ij_pntr + 4);
       
-      "add %%edx, %[ldb]                          \n\t"
+      "add %%rdx, %q[ldb]                          \n\t"
       
+      // Group 1
       // "movapd %[ro2], [ %[a] ]                    \n\t"  // ro2 = _mm_load_pd((double*)(a));
       "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] ]        \n\t"  
       // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
@@ -1369,6 +1377,7 @@ void PackB_and_AddDot6x8_ASM(
       "vmovapd YMMWORD PTR [ %[b_to] ], %[b00_vreg_v]         \n\t"  
       // _mm256_store_pd(b_to, b00_vreg.v);
 
+      // Group 2
       // "movapd %[ro2], [ %[a] + 16 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+2));
       "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 16 ]        \n\t"  
       // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
@@ -1387,6 +1396,7 @@ void PackB_and_AddDot6x8_ASM(
       "vmovapd YMMWORD PTR [ %[b_to] + 32 ], %[b04_vreg_v]    \n\t"  
       // _mm256_store_pd(b_to+4, b04_vreg.v);
 
+      // Group 3
       // "movapd %[ro2], [ %[a] + 32 ]               \n\t"  // ro2 = _mm_load_pd((double*)(a+4));
       "vbroadcastf128 %[a0_vreg_v], XMMWORD PTR [ %[a] + 32 ]        \n\t"  
       // a0_vreg.v = _mm256_set_m128d(ro2, ro2);
@@ -1402,9 +1412,11 @@ void PackB_and_AddDot6x8_ASM(
       "vfmadd231pd %[c54_vreg_v], %[b04_vreg_v], %[a0_vreg_v] \n\t"  
       // c54_vreg.v = _mm256_fmadd_pd(b04_vreg.v, a0_vreg.v, c54_vreg.v);
 
-      "add %[a], 48                               \n\t"  
-      // a += 6;  // TODO: can reuse the result from the prefetch (char *)(a+48) in line 1016
-      "add %[b_to], 64                            \n\t"  
+      // "add %[a], 48                               \n\t"
+      "lea %[a], [ %[a] + 48 ]                         \n\t"
+      // // a += 6;  // TODO: can reuse the result from the prefetch (char *)(a+48) in line 1016
+      // "add %[b_to], 64                            \n\t"  
+      "lea %[b_to], [ %[b_to] + 64 ]              \n\t"
       // b_to += 8;
 
 
@@ -1420,22 +1432,23 @@ void PackB_and_AddDot6x8_ASM(
         [c40_vreg_v] "=&x" (c40_vreg.v),
         [c44_vreg_v] "=&x" (c44_vreg.v),
         [c50_vreg_v] "=&x" (c50_vreg.v),
-        [c54_vreg_v] "=&x" (c54_vreg.v)
+        [c54_vreg_v] "=&x" (c54_vreg.v),
+        [a0_vreg_v]  "=&x" (a0_vreg.v),
+        [b00_vreg_v] "=&x" (b00_vreg.v),
+        [b04_vreg_v] "=&x" (b04_vreg.v),
         [a]          "+&q" (a),
         [b_to]       "+&q" (b_to),
-        [b_ij_pntr]  "+q"  (_b_ij_pntr)
+        [b_ij_pntr]  "+&q"  (_b_ij_pntr)
         // [ro2]        "m" (ro2)
       :  // input
-        [a0_vreg_v]  "x" (a0_vreg.v),
-        [b00_vreg_v] "x" (b00_vreg.v),
-        [b04_vreg_v] "x" (b04_vreg.v),
+        [p] "&q" (p),
         [ob] "q" (ob),
-        [p] "q" (p),
         [ldb] "q" (ldb)
       :  // clobbered registers
-        "%rax",
-        "%rbx",
-        "%rdx"
+        "rax",
+        "rbx",
+        "rdx",
+        "memory"
     );
 
 //     _mm_prefetch((const char *)(ob + (p+8)*ldb), _MM_HINT_T0);
@@ -1503,7 +1516,7 @@ void PackB_and_AddDot6x8_ASM(
   }
 */
 
-  }
+  }  // for
 /* 
   c00_vreg.v = _mm256_add_pd(c00_vreg.v, _mm256_load_pd(&C(0,0)));   
   c04_vreg.v = _mm256_add_pd(c04_vreg.v, _mm256_load_pd(&C(0,4)));
@@ -1601,7 +1614,7 @@ void PackB_and_AddDot6x8_ASM(
       _mm256_store_pd(&C(4, 4), c44_vreg.v);
       _mm256_store_pd(&C(5, 0), c50_vreg.v);
       _mm256_store_pd(&C(5, 4), c54_vreg.v);
-    }
+    }  // if
     else
     
     {
@@ -1619,10 +1632,13 @@ void PackB_and_AddDot6x8_ASM(
           c44_vreg.v = _mm256_add_pd(c44_vreg.v, _mm256_load_pd(packedC+36)); 
           c50_vreg.v = _mm256_add_pd(c50_vreg.v, _mm256_load_pd(packedC+40));
           c54_vreg.v = _mm256_add_pd(c54_vreg.v, _mm256_load_pd(packedC+44));
-        }
 
-    //  print256(" c10_vreg ", c10_vreg);
-    //  print256(" c04_vreg ", c04_vreg);
+        }  // if 
+
+
+
+      // print256(" c10_vreg ", c10_vreg);  // FIXME: A EXTREMELY STRANGE BUG!!!
+      // print256(" c04_vreg ", c04_vreg);
 
 //        if(outi==2016 && outj == 352 && !firstKC)
 //           printf(" before. packedC[0] = %f \n", packedC[0]);
@@ -1646,7 +1662,7 @@ void PackB_and_AddDot6x8_ASM(
            printf(" after.  packedC[0] = %f \n", packedC[0]);
         }
 */
-    }
+    }  // else
 
 }
 

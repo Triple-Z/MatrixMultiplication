@@ -2,7 +2,10 @@
  MKL_FLAG= -mkl -D_MKL_ -O3 -march=core-avx2 -DD=2048
 
  OPT_FLAG= -lopenblas -D_OPENBLAS_ -march=core-avx2 -O3 -DD=2048 -xCORE-AVX2 -Wall
+ OPT_DEBUG_FLAG= -lopenblas -D_OPENBLAS_ -march=core-avx2 -O3 -xCORE-AVX2 -Wall
  DEBUG_FLAG= -lopenblas -D_OPENBLAS_ -march=core-avx2 -O0 -DD=2048
+
+ CC_DEBUG = -g
 
  ASM_FLAG = -masm=intel
 
@@ -19,9 +22,13 @@ debug:
 assemble:
 	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm.s -S
 cpp2asm:
-	icc $(OPT_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-asm.s -S -g
+	icc $(OPT_DEBUG_FLAG) $(ASM_FLAG) gemm.cpp -o gemm-asm.s -S 
 asm2bin:	# with debug function
-	icc $(OPT_FLAG) $(ASM_FLAG) gemm-asm.s -o gemm-asm.out -g
+	icc $(OPT_DEBUG_FLAG) $(ASM_FLAG) gemm-asm.s -o gemm-asm.out
+cpp2asm-debug:
+	icc $(OPT_DEBUG_FLAG) $(ASM_FLAG) $(CC_DEBUG) gemm.cpp -o gemm-asm-debug.s -S 
+asm2bin-debug:	# with debug function
+	icc $(OPT_DEBUG_FLAG) $(ASM_FLAG) $(CC_DEBUG) gemm-asm-debug.s -o gemm-asm-debug.out
 clean:
 	rm gemm.out
 
